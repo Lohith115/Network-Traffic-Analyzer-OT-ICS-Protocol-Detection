@@ -424,7 +424,7 @@ The dashboard is a single-page application served directly by Flask with zero ex
 ### Overview Dashboard
 ![Overview](screenshots/1.png)
 
-### Real-time Traffic Statistics
+### Ports Overview 
 ![Traffic Stats](screenshots/1_2.png)
 
 ### Network Flows Tracking
@@ -456,7 +456,7 @@ The dashboard is a single-page application served directly by Flask with zero ex
 
 ## Author
 
-**T Lohith** — M.Tech Networks & Cybersecurity, Amity University Gurugram
+**T Lohith** — M.Tech Networks & Cybersecurity.
 
 Specializing in OT/ICS security and Blue Team operations. This project is part of a cybersecurity portfolio targeting SOC Analyst and Security Engineer roles with a focus on critical infrastructure protection.
 
