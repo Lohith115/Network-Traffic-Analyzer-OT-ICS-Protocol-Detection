@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Traffic Analyzer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* CSS Variables for Color Palette */
+        :root {
+            --bg-color: #f8fafc;
+            --surface-color: #ffffff;
+            --border-color: #e2e8f0;
+            --primary-accent: #1e40af;
+            --secondary-accent: #0f766e;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --success: #16a34a;
+            --warning: #d97706;
+            --danger: #dc2626;
+            --critical: #7c3aed;
+            --hover-bg: #f1f5f9;
+        }
+
+        /* Global Reset & Base Styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100%); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pulseDot {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
+            50% { transform: scale(1.4); box-shadow: 0 0 0 4px rgba(22, 163, 74, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+        }
+        @keyframes flashUpdate {
+            0% { background-color: transparent; }
+            10% { background-color: rgba(30, 64, 175, 0.08); }
+            100% { background-color: transparent; }
+        }
+
+        /* Top Navigation Bar */
+        .navbar {
+            position: sticky;
+            top: 0;
+            height: 56px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 1000;
+        }
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            color: var(--primary-accent);
+        }
+        .brand h1 {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--primary-accent);
+            line-height: 1.2;
+        }
+        .brand span {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .nav-center {
+            display: flex;
+            gap: 32px;
+        }
+        .nav-tab {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 16px 0;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .nav-tab:hover {
+            color: var(--text-primary);
+        }
+        .nav-tab.active {
+            color: var(--primary-accent);
+            border-bottom-color: var(--primary-accent);
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+        }
+        .capture-input {
+            width: 180px;
+            height: 32px;
+            padding: 0 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .capture-input:focus {
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 0 3px rgba(30,64,175,0.1);
+        }
+        .btn {
+            height: 32px;
+            padding: 0 16px;
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-primary {
+            background-color: var(--primary-accent);
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: #1d3461;
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-danger-outline {
+            background-color: white;
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            display: none;
+        }
+        .btn-danger-outline:hover {
+            background-color: #fee2e2;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #94a3b8;
+        }
+        .status-dot.running {
+            background-color: var(--success);
+            animation: pulseDot 1.5s infinite;
+        }
+        .status-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .error-msg {
+            position: absolute;
+            top: 36px;
+            left: 0;
+            color: var(--danger);
+            font-size: 0.75rem;
+            display: none;
+        }
+
+        /* Error Banner */
+        #error-banner {
+            position: fixed;
+            top: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--danger);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            z-index: 1100;
+            display: none;
+            box-shadow: 0 4px 6px rgba(220, 38, 38, 0.2);
+        }
+
+        /* Main Container */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Cards General */
+        .card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            opacity: 0;
+            animation: fadeInUp 0.4s ease-out forwards;
+        }
+
+        /* Overview Tab */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            padding: 20px 24px;
+            border-left: 3px solid var(--primary-accent);
+        }
+        .stat-card:nth-child(1) { animation-delay: 0.05s; }
+        .stat-card:nth-child(2) { animation-delay: 0.10s; }
+        .stat-card:nth-child(3) { animation-delay: 0.15s; }
+        .stat-card:nth-child(4) { animation-delay: 0.20s; }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            transition: background-color 0.3s;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .stat-sub {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .charts-row {
+            display: grid;
+            grid-template-columns: 60% calc(40% - 24px);
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        .chart-card {
+            padding: 24px;
+            animation-delay: 0.25s;
+        }
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+        
+        /* Top Talkers List */
+        .talker-list {
+            list-style: none;
+        }
+        .talker-item {
+            margin-bottom: 16px;
+        }
+        .talker-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.875rem;
+        }
+        .talker-ip { font-weight: 500; }
+        .talker-bytes { color: var(--text-secondary); }
+        .talker-bar-bg {
+            height: 6px;
+            background-color: var(--hover-bg);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .talker-bar-fill {
+            height: 100%;
+            background-color: var(--primary-accent);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.5s ease-out;
+        }
+
+        /* SCADA Signatures Panel */
+        .scada-panel {
+            padding: 24px;
+            border-left: 3px solid var(--secondary-accent);
+            animation-delay: 0.3s;
+        }
+        .scada-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .scada-card {
+            padding: 16px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        .scada-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        .scada-name { font-weight: 600; font-size: 0.875rem; }
+        .scada-ports { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; }
+        .scada-desc { font-size: 0.75rem; color: var(--text-secondary); }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-risk-HIGH { background: #fee2e2; color: var(--danger); border: 1px solid #fca5a5; }
+        .badge-risk-MEDIUM { background: #fef3c7; color: var(--warning); border: 1px solid #fcd34d; }
+        .badge-risk-LOW { background: #dcfce7; color: var(--success); border: 1px solid #86efac; }
+        .badge-risk-CRITICAL { background: #ede9fe; color: var(--critical); border: 1px solid #c4b5fd; }
+
+        .badge-proto-TCP { background: #dbeafe; color: var(--primary-accent); }
+        .badge-proto-UDP { background: #ccfbf1; color: var(--secondary-accent); }
+        .badge-proto-ICMP { background: #fef3c7; color: var(--warning); }
+        .badge-proto-SCADA { background: #ede9fe; color: var(--critical); }
+
+        /* Flows Tab */
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .table-card {
+            overflow: hidden;
+            animation-delay: 0.05s;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        th {
+            background-color: var(--bg-color);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 12px 24px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+        }
+        td {
+            padding: 12px 24px;
+            border-bottom: 1px solid var(--hover-bg);
+            font-size: 0.875rem;
+            transition: background-color 0.15s;
+        }
+        tr:hover td {
+            background-color: var(--bg-color);
+        }
+        .select-input {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.875rem;
+            outline: none;
+        }
+
+        /* Alerts Tab */
+        .alerts-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .filter-btn {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn.active {
+            background: var(--text-primary);
+            color: white;
+            border-color: var(--text-primary);
+        }
+        .alert-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .alert-card {
+            position: relative;
+            padding: 16px 24px;
+            padding-left: 28px;
+            opacity: 0;
+            animation: slideInRight 0.3s ease-out forwards;
+        }
+        .alert-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            border-radius: 12px 0 0 12px;
+        }
+        .alert-card.CRITICAL::before { background-color: var(--critical); }
+        .alert-card.HIGH::before { background-color: var(--danger); }
+        .alert-card.MEDIUM::before { background-color: var(--warning); }
+        .alert-card.LOW::before { background-color: var(--success); }
+        
+        .alert-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .alert-title-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .alert-type {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .alert-time {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .alert-desc {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .ot-tag {
+            display: inline-flex;
+            font-size: 0.7rem;
+            background: #f1f5f9;
+            color: var(--secondary-accent);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .ip-hl {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            background: var(--hover-bg);
+            padding: 1px 4px;
+            border-radius: 3px;
+            color: var(--text-primary);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 64px 24px;
+            color: var(--text-secondary);
+        }
+        .empty-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="error-banner">Connection error</div>
+
+    <nav class="navbar">
+        <div class="nav-left">
+            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <div class="brand">
+                <h1>NTA</h1>
+                <span>Network Traffic Analyzer</span>
+            </div>
+        </div>
+        
+        <div class="nav-center">
+            <div class="nav-tab active" data-target="overview">Overview</div>
+            <div class="nav-tab" data-target="flows">Flows</div>
+            <div class="nav-tab" data-target="alerts">Alerts</div>
+        </div>
+
+        <div class="nav-right">
+            <div style="position: relative;">
+                <input type="text" id="capture-interface" class="capture-input" placeholder="Interface (e.g. eth0)">
+                <div id="capture-error" class="error-msg"></div>
+            </div>
+            <button id="btn-start" class="btn btn-primary">Start Capture</button>
+            <button id="btn-stop" class="btn btn-danger-outline">Stop</button>
+            <div class="status-indicator">
+                <div id="status-dot" class="status-dot"></div>
+                <span id="status-text" class="status-text">Stopped</span>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <!-- OVERVIEW TAB -->
+        <div id="tab-overview" class="tab-content active">
+            <div class="stats-grid">
+                <div class="card stat-card">
+                    <div class="stat-label">Total Packets</div>
+                    <div id="stat-packets" class="stat-value mono">0</div>
+                    <div class="stat-sub">Analyzed packets</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-label">Total Bytes</div>
+                    <div id="stat-bytes" class="stat-value mono">0 B</div>
+                    <div class="stat-sub">Processed volume</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-label">Active Flows</div>
+                    <div id="stat-flows" class="stat-value mono">0</div>
+                    <div class="stat-sub">Current sessions</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-label">Uptime</div>
+                    <div id="stat-uptime" class="stat-value mono">00:00:00</div>
+                    <div class="stat-sub">Engine run time</div>
+                </div>
+            </div>
+
+            <div class="charts-row">
+                <div class="card chart-card">
+                    <div class="card-title">Protocol Distribution</div>
+                    <div class="chart-container">
+                        <canvas id="protocolChart"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <div class="card-title">Top Talkers</div>
+                    <ul id="top-talkers-list" class="talker-list">
+                        <!-- Populated via JS -->
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card scada-panel">
+                <div class="card-title">OT/ICS Protocol Signatures</div>
+                <div id="scada-grid" class="scada-grid">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- FLOWS TAB -->
+        <div id="tab-flows" class="tab-content">
+            <div class="controls-row">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <h2 class="card-title" style="margin:0;">Recent Flows</h2>
+                    <span id="flow-count-badge" class="badge" style="background:#f1f5f9; color:var(--text-secondary);">0</span>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <select id="flow-limit" class="select-input">
+                        <option value="50">50 rows</option>
+                        <option value="100" selected>100 rows</option>
+                        <option value="200">200 rows</option>
+                    </select>
+                    <button id="btn-refresh-flows" class="filter-btn">Refresh</button>
+                </div>
+            </div>
+            <div class="card table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Source</th>
+                            <th>Destination</th>
+                            <th>Protocol</th>
+                            <th>Bytes</th>
+                            <th>Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody id="flows-tbody">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ALERTS TAB -->
+        <div id="tab-alerts" class="tab-content">
+            <div class="controls-row">
+                <h2 class="card-title" style="margin:0;">Security Alerts</h2>
+                <div class="alerts-controls" id="alert-filters">
+                    <button class="filter-btn active" data-sev="ALL">ALL</button>
+                    <button class="filter-btn" data-sev="CRITICAL">CRITICAL</button>
+                    <button class="filter-btn" data-sev="HIGH">HIGH</button>
+                    <button class="filter-btn" data-sev="MEDIUM">MEDIUM</button>
+                    <button class="filter-btn" data-sev="LOW">LOW</button>
+                </div>
+            </div>
+            
+            <div id="alerts-feed" class="alert-feed">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // State Management
+        const state = {
+            captureRunning: false,
+            activeTab: 'overview',
+            currentAlertFilter: 'ALL',
+            status: {
+                total_packets: 0,
+                total_bytes: 0,
+                active_flows: 0,
+                uptime_seconds: 0
+            },
+            intervals: {}
+        };
+
+        // Chart Instance
+        let protoChart = null;
+
+        // Utilities
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            if (bytes < 1024) return bytes + " B";
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+            if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + " MB";
+            return (bytes / 1073741824).toFixed(2) + " GB";
+        }
+
+        function formatUptime(seconds) {
+            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+            const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        function formatTimestamp(isoString) {
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleTimeString();
+            } catch (e) {
+                return isoString;
+            }
+        }
+
+        function highlightIPs(text) {
+            if (!text) return '';
+            const ipRegex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?::[0-9]+)?\b/g;
+            return text.replace(ipRegex, match => `<span class="ip-hl">${match}</span>`);
+        }
+
+        function flashElement(elId) {
+            const el = document.getElementById(elId);
+            if (el) {
+                el.style.animation = 'none';
+                el.offsetHeight; // trigger reflow
+                el.style.animation = 'flashUpdate 0.5s';
+            }
+        }
+
+        function showErrorBanner() {
+            const banner = document.getElementById('error-banner');
+            banner.style.display = 'block';
+            setTimeout(() => { banner.style.display = 'none'; }, 4000);
+        }
+
+        // Initialize Chart.js
+        function initChart() {
+            const ctx = document.getElementById('protocolChart').getContext('2d');
+            protoChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+                    }
+                }
+            });
+        }
+
+        function getChartColor(proto) {
+            const colors = {
+                'TCP': '#1e40af',
+                'UDP': '#0f766e',
+                'ICMP': '#d97706',
+                'Modbus TCP': '#7c3aed',
+                'S7comm': '#7c3aed',
+                'DNP3': '#7c3aed'
+            };
+            if (colors[proto]) return colors[proto];
+            
+            // Generate deterministic color for others
+            let hash = 0;
+            for (let i = 0; i < proto.length; i++) {
+                hash = proto.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = Math.abs(hash) % 360;
+            return `hsl(${hue}, 70%, 50%)`;
+        }
+
+        // API Fetchers
+        async function fetchAPI(endpoint, options = {}) {
+            try {
+                const res = await fetch(`/api/${endpoint}`, options);
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                return await res.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                showErrorBanner();
+                throw error;
+            }
+        }
+
+        async function updateStatus() {
+            try {
+                const data = await fetchAPI('status');
+                
+                // Update nav state
+                state.captureRunning = data.capture_running;
+                const btnStart = document.getElementById('btn-start');
+                const btnStop = document.getElementById('btn-stop');
+                const dot = document.getElementById('status-dot');
+                const txt = document.getElementById('status-text');
+                
+                if (state.captureRunning) {
+                    btnStart.disabled = true;
+                    btnStop.style.display = 'flex';
+                    dot.classList.add('running');
+                    txt.innerText = 'Live';
+                } else {
+                    btnStart.disabled = false;
+                    btnStop.style.display = 'none';
+                    dot.classList.remove('running');
+                    txt.innerText = 'Stopped';
+                }
+
+                // Update overview stats if they changed
+                if (data.total_packets !== state.status.total_packets) {
+                    document.getElementById('stat-packets').innerText = data.total_packets.toLocaleString();
+                    flashElement('stat-packets');
+                }
+                if (data.total_bytes !== state.status.total_bytes) {
+                    document.getElementById('stat-bytes').innerText = formatBytes(data.total_bytes);
+                    flashElement('stat-bytes');
+                }
+                if (data.active_flows !== state.status.active_flows) {
+                    document.getElementById('stat-flows').innerText = data.active_flows.toLocaleString();
+                    flashElement('stat-flows');
+                }
+                
+                document.getElementById('stat-uptime').innerText = formatUptime(data.uptime_seconds);
+                state.status = data;
+
+            } catch (e) {
+                // Silently fail for regular polling
+            }
+        }
+
+        async function updateProtocols() {
+            try {
+                const data = await fetchAPI('protocols');
+                if (!data || data.length === 0) return;
+
+                const labels = [];
+                const values = [];
+                const colors = [];
+
+                data.slice(0, 8).forEach(p => {
+                    labels.push(p.protocol);
+                    values.push(p.packet_count);
+                    colors.push(getChartColor(p.protocol));
+                });
+
+                if (protoChart) {
+                    protoChart.data.labels = labels;
+                    protoChart.data.datasets[0].data = values;
+                    protoChart.data.datasets[0].backgroundColor = colors;
+                    protoChart.update();
+                }
+            } catch (e) {}
+        }
+
+        async function updateTopTalkers() {
+            try {
+                const data = await fetchAPI('top-talkers?limit=6');
+                const list = document.getElementById('top-talkers-list');
+                list.innerHTML = '';
+                
+                if (!data || data.length === 0) return;
+                
+                const maxBytes = data[0].bytes; // Sorted by API
+
+                data.forEach(t => {
+                    const pct = (t.bytes / maxBytes) * 100;
+                    const li = document.createElement('li');
+                    li.className = 'talker-item';
+                    li.innerHTML = `
+                        <div class="talker-header">
+                            <span class="talker-ip mono">${t.ip}</span>
+                            <span class="talker-bytes mono">${formatBytes(t.bytes)}</span>
+                        </div>
+                        <div class="talker-bar-bg">
+                            <div class="talker-bar-fill" style="width: ${pct}%"></div>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+            } catch (e) {}
+        }
+
+        async function loadScadaProtocols() {
+            try {
+                const data = await fetchAPI('scada/protocols');
+                const grid = document.getElementById('scada-grid');
+                grid.innerHTML = '';
+                
+                data.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = 'scada-card card';
+                    card.innerHTML = `
+                        <div class="scada-card-top">
+                            <span class="scada-name">${p.name}</span>
+                            <span class="badge badge-risk-${p.risk}">${p.risk}</span>
+                        </div>
+                        <div class="scada-ports mono">Port: ${p.ports.join(', ')}</div>
+                        <div class="scada-desc">${p.description}</div>
+                    `;
+                    grid.appendChild(card);
+                });
+            } catch (e) {}
+        }
+
+        function getProtoBadgeClass(proto) {
+            if (['TCP'].includes(proto)) return 'badge-proto-TCP';
+            if (['UDP'].includes(proto)) return 'badge-proto-UDP';
+            if (['ICMP'].includes(proto)) return 'badge-proto-ICMP';
+            // Assume others might be SCADA/Special
+            return 'badge-proto-SCADA';
+        }
+
+        async function updateFlows() {
+            try {
+                const limit = document.getElementById('flow-limit').value;
+                const data = await fetchAPI(`flows?limit=${limit}`);
+                const tbody = document.getElementById('flows-tbody');
+                
+                document.getElementById('flow-count-badge').innerText = data.length;
+                tbody.innerHTML = '';
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-secondary);">No flows recorded</td></tr>`;
+                    return;
+                }
+
+                data.forEach(f => {
+                    const tr = document.createElement('tr');
+                    const src = f.src_port ? `${f.src_ip}:${f.src_port}` : f.src_ip;
+                    const dst = f.dst_port ? `${f.dst_ip}:${f.dst_port}` : f.dst_ip;
+                    
+                    tr.innerHTML = `
+                        <td>${formatTimestamp(f.timestamp)}</td>
+                        <td class="mono">${src}</td>
+                        <td class="mono">${dst}</td>
+                        <td><span class="badge ${getProtoBadgeClass(f.protocol)}">${f.protocol}</span></td>
+                        <td class="mono">${formatBytes(f.bytes)}</td>
+                        <td class="mono">${f.duration.toFixed(2)}s</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {}
+        }
+
+        async function updateAlerts() {
+            try {
+                let url = 'alerts?limit=50';
+                if (state.currentAlertFilter !== 'ALL') {
+                    url += `&severity=${state.currentAlertFilter}`;
+                }
+                const data = await fetchAPI(url);
+                const feed = document.getElementById('alerts-feed');
+                feed.innerHTML = '';
+
+                if (data.length === 0) {
+                    feed.innerHTML = `
+                        <div class="empty-state">
+                            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                            <p>No alerts detected</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                data.forEach(a => {
+                    const card = document.createElement('div');
+                    card.className = `card alert-card ${a.severity}`;
+                    
+                    const isOT = a.alert_type.startsWith('OT_');
+                    const otTag = isOT ? `<span class="ot-tag">OT/ICS Detection</span>` : '';
+                    
+                    card.innerHTML = `
+                        <div class="alert-top">
+                            <div class="alert-title-area">
+                                <span class="alert-type">${a.alert_type}</span>
+                                <span class="badge badge-risk-${a.severity}">${a.severity}</span>
+                            </div>
+                            <span class="alert-time mono">${formatTimestamp(a.timestamp)}</span>
+                        </div>
+                        <div class="alert-desc">${highlightIPs(a.description)}</div>
+                        ${otTag}
+                    `;
+                    feed.appendChild(card);
+                });
+            } catch (e) {}
+        }
+
+        // Polling Orchestration
+        function startPolling() {
+            // Clear existing
+            Object.values(state.intervals).forEach(clearInterval);
+            
+            // Always poll status
+            state.intervals.status = setInterval(updateStatus, 3000);
+            
+            // Poll active tab
+            if (state.activeTab === 'overview') {
+                state.intervals.protocols = setInterval(updateProtocols, 3000);
+                state.intervals.talkers = setInterval(updateTopTalkers, 3000);
+            } else if (state.activeTab === 'flows') {
+                state.intervals.flows = setInterval(updateFlows, 5000);
+            } else if (state.activeTab === 'alerts') {
+                state.intervals.alerts = setInterval(updateAlerts, 5000);
+            }
+        }
+
+        function switchTab(tabId) {
+            state.activeTab = tabId;
+            
+            // Update UI
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.nav-tab[data-target="${tabId}"]`).classList.add('active');
+            
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+
+            // Initial fetch for tab
+            if (tabId === 'overview') {
+                updateProtocols();
+                updateTopTalkers();
+            } else if (tabId === 'flows') {
+                updateFlows();
+            } else if (tabId === 'alerts') {
+                updateAlerts();
+            }
+
+            // Restart polling based on active tab
+            startPolling();
+        }
+
+        // Actions
+        async function handleStartCapture() {
+            const input = document.getElementById('capture-interface');
+            const errorDiv = document.getElementById('capture-error');
+            const val = input.value.trim();
+            
+            errorDiv.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/capture/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ interface: val })
+                });
+                
+                const data = await res.json();
+                if (!res.ok) {
+                    errorDiv.innerText = data.error || 'Failed to start';
+                    errorDiv.style.display = 'block';
+                } else {
+                    updateStatus();
+                }
+            } catch (e) {
+                errorDiv.innerText = 'Network error';
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        async function handleStopCapture() {
+            try {
+                await fetch('/api/capture/stop', { method: 'POST' });
+                updateStatus();
+            } catch (e) {}
+        }
+
+        // Event Listeners setup
+        function setupEvents() {
+            // Tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    switchTab(e.target.dataset.target);
+                });
+            });
+
+            // Capture Controls
+            document.getElementById('btn-start').addEventListener('click', handleStartCapture);
+            document.getElementById('btn-stop').addEventListener('click', handleStopCapture);
+
+            // Flow Controls
+            document.getElementById('btn-refresh-flows').addEventListener('click', updateFlows);
+            document.getElementById('flow-limit').addEventListener('change', updateFlows);
+
+            // Alert Controls
+            document.querySelectorAll('.filter-btn[data-sev]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-btn[data-sev]').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    state.currentAlertFilter = e.target.dataset.sev;
+                    updateAlerts();
+                });
+            });
+        }
+
+        // Initial Boot
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            setupEvents();
+            loadScadaProtocols();
+            
+            // Initial data load
+            updateStatus();
+            updateProtocols();
+            updateTopTalkers();
+            
+            startPolling();
+        });
+
+    </script>
+</body>
+</html>
