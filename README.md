@@ -421,6 +421,18 @@ Check the Alerts tab — a Modbus TCP detection alert should appear within 3 sec
 
 The dashboard is a single-page application served directly by Flask with zero external dependencies beyond Chart.js.
 
+### Overview Dashboard
+![Overview](screenshots/1.png)
+
+### Real-time Traffic Statistics
+![Traffic Stats](screenshots/1_2.png)
+
+### Network Flows Tracking
+![Flows](screenshots/2.png)
+
+### Security Alerts & OT Detection
+![Alerts](screenshots/3.png)
+
 **Overview tab** — real-time stat cards (total packets, bytes, active flows, uptime), protocol distribution doughnut chart, top talkers bandwidth visualization, and OT protocol signature reference panel.
 
 **Flows tab** — live table of network flows with colored protocol badges, formatted byte values, session duration, and src/dst IP:Port in monospace font.
